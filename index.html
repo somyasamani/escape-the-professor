@@ -1,62 +1,82 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Escape the Professor</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    
-    <style>
-        body {
-            margin: 0;
-            overflow: hidden;
-            font-family: Arial;
-            background: linear-gradient(135deg, #667eea, #764ba2);
-            color: white;
-        }
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Escape the Professor</title>
 
-        h2 {
-            text-align: center;
-            margin: 10px;
-        }
+<style>
+body {
+    margin: 0;
+    font-family: Arial;
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    color: white;
+    overflow: hidden;
+}
 
-        canvas {
-            display: block;
-            margin: auto;
-            background: #fff;
-            border-radius: 10px;
-            touch-action: none;
-        }
+h2 {
+    text-align: center;
+}
 
-        #scoreText {
-            text-align: center;
-            font-size: 20px;
-        }
+canvas {
+    display: block;
+    margin: auto;
+    background: white;
+    border-radius: 12px;
+}
 
-        button {
-            display: block;
-            margin: 10px auto;
-            padding: 10px 20px;
-            font-size: 16px;
-            border-radius: 8px;
-            border: none;
-            background: #667eea;
-            color: white;
-        }
-    </style>
+/* Game Over Screen */
+#gameOverScreen {
+    position: fixed;
+    top:0;
+    left:0;
+    width:100%;
+    height:100%;
+    display:none;
+    justify-content:center;
+    align-items:center;
+    flex-direction:column;
+    background: rgba(0,0,0,0.85);
+    animation: fadeIn 0.5s ease;
+}
+
+@keyframes fadeIn {
+    from {opacity: 0;}
+    to {opacity: 1;}
+}
+
+#memeText {
+    font-size: 28px;
+    margin-bottom: 20px;
+}
+
+button {
+    padding:10px 20px;
+    border:none;
+    border-radius:10px;
+    background:#667eea;
+    color:white;
+}
+</style>
 </head>
+
 <body>
 
 <h2>🎮 Escape the Professor</h2>
 <canvas id="gameCanvas"></canvas>
-<h3 id="scoreText">Score: 0</h3>
-<button onclick="restartGame()">Restart</button>
+<h3 id="scoreText" style="text-align:center;">Score: 0</h3>
+
+<div id="gameOverScreen">
+    <h2 id="memeText"></h2>
+    <button onclick="restartGame()">Play Again</button>
+</div>
 
 <script>
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
 
-// Fullscreen canvas
-function resizeCanvas() {
-    canvas.width = window.innerWidth * 0.95;
+// Responsive canvas
+function resizeCanvas(){
+    canvas.width = window.innerWidth * 0.9;
     canvas.height = window.innerHeight * 0.6;
 }
 resizeCanvas();
@@ -64,122 +84,148 @@ window.addEventListener("resize", resizeCanvas);
 
 let player, professor, item, score, gameOver, speed;
 
-function init() {
-    player = { x: 50, y: 50, size: 25 };
-    professor = { x: canvas.width - 50, y: canvas.height - 50, size: 25 };
+// Touch control
+let touchX = 0, touchY = 0, touching = false;
+
+// Memes 😂
+const memes = [
+    "💀 RIP GPA",
+    "😭 Professor caught you",
+    "📉 Backlogs unlocked",
+    "🪦 Internal marks gone",
+    "📚 You tried... but failed"
+];
+
+function init(){
+    player = {x:100, y:100};
+    professor = {x:canvas.width-50, y:canvas.height-50};
     item = spawnItem();
     score = 0;
     gameOver = false;
-    speed = 1.2;
+    speed = 0.7;
 
     document.getElementById("scoreText").innerText = "Score: 0";
+    document.getElementById("gameOverScreen").style.display = "none";
 }
 
-function spawnItem() {
+// Random item spawn
+function spawnItem(){
     return {
-        x: Math.random() * (canvas.width - 30),
-        y: Math.random() * (canvas.height - 30),
-        size: 20
+        x: Math.random()*canvas.width,
+        y: Math.random()*canvas.height
     };
 }
 
-// 👉 Swipe control
-let startX = 0, startY = 0;
-
-canvas.addEventListener("touchstart", (e) => {
-    startX = e.touches[0].clientX;
-    startY = e.touches[0].clientY;
+// Touch controls (mobile)
+canvas.addEventListener("touchstart",(e)=>{
+    touching = true;
 });
 
-canvas.addEventListener("touchend", (e) => {
-    let endX = e.changedTouches[0].clientX;
-    let endY = e.changedTouches[0].clientY;
+canvas.addEventListener("touchmove",(e)=>{
+    let rect = canvas.getBoundingClientRect();
+    touchX = e.touches[0].clientX - rect.left;
+    touchY = e.touches[0].clientY - rect.top;
+});
 
-    let dx = endX - startX;
-    let dy = endY - startY;
+canvas.addEventListener("touchend",()=>{
+    touching = false;
+});
 
-    if (Math.abs(dx) > Math.abs(dy)) {
-        if (dx > 0) move("right");
-        else move("left");
-    } else {
-        if (dy > 0) move("down");
-        else move("up");
+// Keyboard controls (PC)
+document.addEventListener("keydown",(e)=>{
+    if(e.key==="ArrowUp") player.y-=20;
+    if(e.key==="ArrowDown") player.y+=20;
+    if(e.key==="ArrowLeft") player.x-=20;
+    if(e.key==="ArrowRight") player.x+=20;
+});
+
+// Game update
+function update(){
+    if(gameOver) return;
+
+    // Touch movement
+    if(touching){
+        let dx = touchX - player.x;
+        let dy = touchY - player.y;
+        let dist = Math.sqrt(dx*dx + dy*dy);
+
+        if(dist > 5){
+            player.x += dx/dist * 4;
+            player.y += dy/dist * 4;
+        }
     }
-});
 
-// Keyboard also works
-document.addEventListener("keydown", (e) => {
-    if (e.key === "ArrowUp") move("up");
-    if (e.key === "ArrowDown") move("down");
-    if (e.key === "ArrowLeft") move("left");
-    if (e.key === "ArrowRight") move("right");
-});
+    // Boundaries
+    player.x = Math.max(0, Math.min(canvas.width, player.x));
+    player.y = Math.max(0, Math.min(canvas.height, player.y));
 
-function move(dir) {
-    if (gameOver) return;
-
-    let step = 30;
-
-    if (dir === "up") player.y -= step;
-    if (dir === "down") player.y += step;
-    if (dir === "left") player.x -= step;
-    if (dir === "right") player.x += step;
-
-    player.x = Math.max(0, Math.min(canvas.width - 20, player.x));
-    player.y = Math.max(0, Math.min(canvas.height - 20, player.y));
-}
-
-function update() {
-    if (gameOver) return;
-
+    // Professor chasing
     let dx = player.x - professor.x;
     let dy = player.y - professor.y;
-    let dist = Math.sqrt(dx * dx + dy * dy);
+    let dist = Math.sqrt(dx*dx + dy*dy);
 
-    professor.x += (dx / dist) * speed;
-    professor.y += (dy / dist) * speed;
+    professor.x += (dx/dist) * speed;
+    professor.y += (dy/dist) * speed;
 
-    if (Math.abs(player.x - professor.x) < 25 &&
-        Math.abs(player.y - professor.y) < 25) {
-
+    // Collision with professor
+    if(Math.abs(player.x-professor.x)<25 &&
+       Math.abs(player.y-professor.y)<25){
         gameOver = true;
-
-        // 📳 Vibration
-        if (navigator.vibrate) {
-            navigator.vibrate([200, 100, 200]);
-        }
-
-        alert("💀 Game Over!");
+        showMeme();
     }
 
-    if (Math.abs(player.x - item.x) < 25 &&
-        Math.abs(player.y - item.y) < 25) {
+    // Collect item
+    if(Math.abs(player.x-item.x)<25 &&
+       Math.abs(player.y-item.y)<25){
+
         score++;
         item = spawnItem();
-        speed += 0.1;
-        document.getElementById("scoreText").innerText = "Score: " + score;
+
+        // 🎯 Dynamic difficulty (IMPORTANT)
+        speed = 0.7 + (score * 0.12);
+
+        document.getElementById("scoreText").innerText = "Score: "+score;
     }
 }
 
-function draw() {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-    ctx.font = "24px Arial";
-    ctx.fillText("🧑‍🎓", player.x, player.y);
-    ctx.fillText("👨‍🏫", professor.x, professor.y);
-    ctx.fillText("📚", item.x, item.y);
+// Show meme popup
+function showMeme(){
+    let meme = memes[Math.floor(Math.random()*memes.length)];
+    document.getElementById("memeText").innerText = meme;
+    document.getElementById("gameOverScreen").style.display = "flex";
 }
 
-function gameLoop() {
+// Draw game
+function draw(){
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+
+    let float = Math.sin(Date.now()/200)*5;
+
+    ctx.font="26px Arial";
+
+    // Player glow
+    ctx.shadowBlur = 10;
+    ctx.shadowColor = "blue";
+    ctx.fillText("🧑‍🎓",player.x,player.y);
+    ctx.shadowBlur = 0;
+
+    ctx.fillText("👨‍🏫",professor.x,professor.y);
+    ctx.fillText("📚",item.x,item.y+float);
+}
+
+// Game loop
+function gameLoop(){
     update();
     draw();
     requestAnimationFrame(gameLoop);
 }
 
-function restartGame() {
+// Restart
+function restartGame(){
     init();
 }
 
+// Start game
 init();
 gameLoop();
 </script>
